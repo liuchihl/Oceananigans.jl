@@ -142,7 +142,7 @@ Base.summary(::DiagonallyDominantPreconditioner) = "DiagonallyDominantPreconditi
     grid = r.grid
     arch = architecture(p)
     fill_halo_regions!(r)
-    launch!(arch, grid, :xyz, _diagonally_dominant_precondition!, p, grid, r)
+    launch!(arch, grid, :xyz, _asymptotic_poisson_precondition!, p, grid, r)
 
     mean_p = mean(p)
     launch!(arch, grid, :xyz, subtract_and_mask!, p, grid, mean_p)
@@ -162,17 +162,23 @@ end
                               Ay⁻(i, j, k, grid) - Ay⁺(i, j, k, grid) -
                               Az⁻(i, j, k, grid) - Az⁺(i, j, k, grid)
                               
-@inline heuristic_residual(i, j, k, grid, r) =
-    @inbounds 1 / Ac(i, j, k, grid) * (r[i, j, k] - 2 * Ax⁻(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i-1, j, k, grid)) * r[i-1, j, k] -
-                                                    2 * Ax⁺(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i+1, j, k, grid)) * r[i+1, j, k] -
-                                                    2 * Ay⁻(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i, j-1, k, grid)) * r[i, j-1, k] -
-                                                    2 * Ay⁺(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i, j+1, k, grid)) * r[i, j+1, k] -
-                                                    2 * Az⁻(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i, j, k-1, grid)) * r[i, j, k-1] -
-                                                    2 * Az⁺(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i, j, k+1, grid)) * r[i, j, k+1])
+@inline function heuristic_poisson_solution(i, j, k, grid, r)
+    @inbounds begin
+        a⁰⁰⁰ = r[i, j, k]
+        a⁻⁰⁰ = 2 * Ax⁻(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i-1, j, k, grid)) * r[i-1, j, k]
+        a⁺⁰⁰ = 2 * Ax⁺(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i+1, j, k, grid)) * r[i+1, j, k]
+        a⁰⁻⁰ = 2 * Ay⁻(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i, j-1, k, grid)) * r[i, j-1, k]
+        a⁰⁺⁰ = 2 * Ay⁺(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i, j+1, k, grid)) * r[i, j+1, k]
+        a⁰⁰⁻ = 2 * Az⁻(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i, j, k-1, grid)) * r[i, j, k-1]
+        a⁰⁰⁺ = 2 * Az⁺(i, j, k, grid) / (Ac(i, j, k, grid) + Ac(i, j, k+1, grid)) * r[i, j, k+1]
+    end
 
-@kernel function _diagonally_dominant_precondition!(p, grid, r)
+    return (a⁰⁰⁰ - a⁻⁰⁰ - a⁺⁰⁰ - a⁰⁻⁰ - a⁰⁺⁰ - a⁰⁰⁻ - a⁰⁰⁺) / Ac(i, j, k, grid)
+end
+
+@kernel function _asymptotic_poisson_precondition!(p, grid, r)
     i, j, k = @index(Global, NTuple)
     active = !inactive_cell(i, j, k, grid)
-    @inbounds p[i, j, k] = heuristic_residual(i, j, k, grid, r) * active
+    @inbounds p[i, j, k] = heuristic_poisson_solution(i, j, k, grid, r) * active
 end
 
