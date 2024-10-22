@@ -1,6 +1,6 @@
 module NonhydrostaticModels
 
-export NonhydrostaticModel
+export NonhydrostaticModel, BackgroundField, BackgroundFields
 
 using DocStringExtensions
 
@@ -75,6 +75,7 @@ nonhydrostatic_pressure_solver(grid) = nonhydrostatic_pressure_solver(architectu
 ##### NonhydrostaticModel definition
 #####
 
+include("background_fields.jl")
 include("nonhydrostatic_model.jl")
 include("pressure_field.jl")
 include("show_nonhydrostatic_model.jl")
