@@ -1,6 +1,5 @@
 # using Revise
 using Oceananigans
-using Plots
 using NCDatasets
 using Test
 if isfile("single_decay_windowed_time_average_test.nc")
@@ -190,24 +189,26 @@ end
     end
 
     # Plot each of the four lines
-    pl = plot()
-    plot!(time, data_plot[1, :], label="1", color=:blue, legend=:topright)
-    plot!(time, data_plot[2, :], label="2", color=:red)
-    plot!(time, data_plot[3, :], label="3", color=:orange)
-    plot!(time, data_plot[4, :], label="4", color=:green)
+    using CairoMakie
+    fig = Figure()
+    ax = Axis(fig[1, 1])
+    lines!(ax, time, data_plot[1, :], label="1", color=:blue, legend=:topright)
+    lines!(ax, time, data_plot[2, :], label="2", color=:red)
+    lines!(ax, time, data_plot[3, :], label="3", color=:orange)
+    lines!(ax, time, data_plot[4, :], label="4", color=:green)
     
-    plot!(time[1:end],c̄1_timeaverage[1,:], color=:black, linestyle=:dash, label="1-analytic")
-    plot!(time[1:end],c̄1_timeaverage[2,:], color=:black, linestyle=:dash, label="2-analytic")
-    plot!(time[1:end],c̄1_timeaverage[3,:], color=:black, linestyle=:dash, label="3-analytic")
-    plot!(time[1:end],c̄1_timeaverage[4,:], color=:black, linestyle=:dash, label="4-analytic")
+    lines!(ax, time[1:end],c̄1_timeaverage[1,:], color=:black, linestyle=:dash, label="1-analytic")
+    lines!(ax, time[1:end],c̄1_timeaverage[2,:], color=:black, linestyle=:dash, label="2-analytic")
+    lines!(ax, time[1:end],c̄1_timeaverage[3,:], color=:black, linestyle=:dash, label="3-analytic")
+    lines!(ax, time[1:end],c̄1_timeaverage[4,:], color=:black, linestyle=:dash, label="4-analytic")
     
 
     tt = 0:window:T2
     for i in 1:length(tt)
-    plot!([tt[i], tt[i]],[0,1],color=:grey,label="")
+        lines!(ax, [tt[i], tt[i]],[0,1],color=:grey,label="")
     end
-    title!(pl, string("Δt=",Δt,", average window=",window_nΔt,"Δt", ", interval=",interval_nΔt,"Δt")) # Add the title to the plot
-    ylims!(pl,(minimum(c̄1_timeaverage[4,:]),maximum(c̄1_timeaverage[4,:])))
-    xlims!(pl,(0,T2))
+    #title!(pl, string("Δt=",Δt,", average window=",window_nΔt,"Δt", ", interval=",interval_nΔt,"Δt")) # Add the title to the plot
+    #ylims!(pl,(minimum(c̄1_timeaverage[4,:]),maximum(c̄1_timeaverage[4,:])))
+    #xlims!(pl,(0,T2))
     close(single_ds)
-    display(pl)
+    display(fig)
