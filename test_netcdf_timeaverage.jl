@@ -98,8 +98,8 @@ end
     Δt = 0.01 #1/64 # Nice floating-point number
     T1 = 100Δt      # first simulation stop time (s)
     T2 = 2T1      # second simulation stop time (s)
-    window_nΔt = 3
-    interval_nΔt = 5
+    window_nΔt = 2
+    interval_nΔt = 4
     stride = 1
     # Run a simulation that saves data to a checkpoint
     simulation = test_simulation(T1, Δt, window_nΔt, interval_nΔt, stride, true)
