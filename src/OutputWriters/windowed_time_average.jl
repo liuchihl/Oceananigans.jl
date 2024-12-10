@@ -61,7 +61,7 @@ AveragedTimeInterval(window=2 days, stride=1, interval=4 days)
 An `AveragedTimeInterval` schedule directs an output writer
 to time-average its outputs before writing them to disk:
 
-```jldoctest averaged_time_interval
+```@example averaged_time_interval
 using Oceananigans
 using Oceananigans.Units
 
@@ -72,15 +72,6 @@ simulation = Simulation(model, Δt=10minutes, stop_time=30days)
 simulation.output_writers[:velocities] = JLD2OutputWriter(model, model.velocities,
                                                           filename= "averaged_velocity_data.jld2",
                                                           schedule = AveragedTimeInterval(4days, window=2days, stride=2))
-
-# output
-JLD2OutputWriter scheduled on TimeInterval(4 days):
-├── filepath: ./averaged_velocity_data.jld2
-├── 3 outputs: (u, v, w) averaged on AveragedTimeInterval(window=2 days, stride=2, interval=4 days)
-├── array type: Array{Float64}
-├── including: [:grid, :coriolis, :buoyancy, :closure]
-├── file_splitting: NoFileSplitting
-└── file size: 27.6 KiB
 ```
 """
 function AveragedTimeInterval(interval; window=interval, stride=1)
@@ -93,7 +84,7 @@ function next_actuation_time(sch::AveragedTimeInterval)
     N = sch.actuations
     interval = sch.interval
     return t₀ + (N + 1) * interval 
-    # the actuation time is the end of the time averaging window
+    # the next actuation time is the end of the time averaging window
 end
 
 # Schedule actuation
@@ -127,7 +118,6 @@ AveragedSpecifiedTimes(specified_times::SpecifiedTimes; window, stride=1) =
 
 AveragedSpecifiedTimes(times; kw...) = AveragedSpecifiedTimes(SpecifiedTimes(times); kw...)
 
-# Schedule actuation
 function (schedule::AveragedSpecifiedTimes)(model)
     time = model.clock.time
 
@@ -215,6 +205,8 @@ function (wta::WindowedTimeAverage)(model)
         model.clock.iteration > 0 &&
         @warn "Returning a WindowedTimeAverage before the collection period is complete."
 
+    stride(wta) > 1 && @warn "WindowedTimeAverage can be erroneous when stride > 1 and either the timestep is variable or there are floating point rounding errors in times, both of which result in a decoupling of the model clock times (used in the OutputWriters) and iteration numbers (used for stride)."
+
     return wta.result
 end
 
@@ -226,7 +218,6 @@ end
 function accumulate_result!(wta, clock::Clock, integrand=wta.operand)
     # Time increment:
     Δt = clock.time - wta.previous_collection_time
-    
     # Time intervals:
     T_current = clock.time - wta.window_start_time
     T_previous = wta.previous_collection_time - wta.window_start_time

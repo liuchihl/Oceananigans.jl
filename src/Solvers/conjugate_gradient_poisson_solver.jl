@@ -1,4 +1,4 @@
-using Oceananigans.Operators: divᶜᶜᶜ, ∇²ᶜᶜᶜ, Ayᶜᶠᶜ, Δyᶜᶠᶜ, Vᶜᶜᶜ, Azᶜᶜᶠ, Δzᶜᶜᶠ, Δxᶠᶜᶜ, Axᶠᶜᶜ, Δzᶜᶜᶜ, Δxᶜᶜᶜ, Δyᶜᶜᶜ
+using Oceananigans.Operators
 using Oceananigans.ImmersedBoundaries: ImmersedBoundaryGrid
 using Statistics: mean
 
