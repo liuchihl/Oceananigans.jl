@@ -87,6 +87,8 @@ pressure anomaly.
 
     total_velocities = sum_of_velocities(velocities, background_fields.velocities)
     total_velocities = with_advective_forcing(forcing, total_velocities)
+    closure_velocities = assemble_closure_velocities(velocities, background_fields)
+    closure_model_fields = merge(closure_velocities, tracers, auxiliary_fields)
 
     return ( - div_𝐯u(i, j, k, grid, advection, total_velocities, velocities.u)
              - div_𝐯u(i, j, k, grid, advection, velocities, background_fields.velocities.u)
@@ -147,6 +149,8 @@ pressure anomaly.
 
     total_velocities = sum_of_velocities(velocities, background_fields.velocities)
     total_velocities = with_advective_forcing(forcing, total_velocities)
+    closure_velocities = assemble_closure_velocities(velocities, background_fields)
+    closure_model_fields = merge(closure_velocities, tracers, auxiliary_fields)
 
     return ( - div_𝐯v(i, j, k, grid, advection, total_velocities, velocities.v)
              - div_𝐯v(i, j, k, grid, advection, velocities, background_fields.velocities.v)
@@ -209,6 +213,8 @@ velocity components, tracer fields, and precalculated diffusivities where applic
 
     total_velocities = sum_of_velocities(velocities, background_fields.velocities)
     total_velocities = with_advective_forcing(forcing, total_velocities)
+    closure_velocities = assemble_closure_velocities(velocities, background_fields)
+    closure_model_fields = merge(closure_velocities, tracers, auxiliary_fields)
 
     return ( - div_𝐯w(i, j, k, grid, advection, total_velocities, velocities.w)
              - div_𝐯w(i, j, k, grid, advection, velocities, background_fields.velocities.w)
