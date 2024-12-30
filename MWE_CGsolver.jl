@@ -155,7 +155,6 @@ regularizer = 1
 model = NonhydrostaticModel(
     grid = grid_immerse,
     pressure_solver = ConjugateGradientPoissonSolver(grid_immerse; maxiter=100,preconditioner)
-    
 )
 set!(model, u=uᵢ, v=vᵢ)
 
@@ -168,3 +167,5 @@ progress_message(s) = @info @sprintf("[%.2f%%], iteration: %d, time: %.3f, max|u
                             s.model.clock.time, maximum(abs, model.velocities.u),maximum(abs, model.velocities.w)) 
 simulation.callbacks[:progress] = Callback(progress_message, TimeInterval(Δt))
 run!(simulation)
+
+
