@@ -14,18 +14,17 @@ Run a model with or without background fields and return the mean buoyancy value
 """
 function run_with_background_fields(arch; with_background=true)
     grid = RectilinearGrid(arch, size=4, z=(0, 1), topology=(Flat, Flat, Bounded))
-    buoyancy = Buoyancy(model = BuoyancyTracer())
     # Setup model with or without background fields
     if with_background
         background_fields = Oceananigans.BackgroundFields(; 
                              background_closure_fluxes=true, b=B̄_field)
-        model = NonhydrostaticModel(; grid, background_fields, tracers = :b, buoyancy)
+        model = NonhydrostaticModel(; grid, background_fields, tracers = :b, buoyancy=BuoyancyTracer())
         b = model.tracers.b
         B̄ = model.background_fields.tracers.b
         B = B̄ + b # total buoyancy field
 
     else
-        model = NonhydrostaticModel(; grid, tracers = :b, buoyancy)
+        model = NonhydrostaticModel(; grid, tracers = :b, buoyancy=BuoyancyTracer())
         b = model.tracers.b
         B = b # total buoyancy field
 
