@@ -1,3 +1,4 @@
+import Oceananigans.Grids: cpu_face_constructor_x, cpu_face_constructor_y, cpu_face_constructor_z
 import Oceananigans.Grids: xspacings, yspacings, zspacings
 
 const c = Center()
@@ -8,7 +9,7 @@ const f = Face()
 @inline znode(k, ibg::IBG, ℓz) = znode(k, ibg.underlying_grid, ℓz)
 
 @inline λnode(i, ibg::IBG, ℓx) = λnode(i, ibg.underlying_grid, ℓx)
-@inline φnode(j, ibg::IBG, ℓy) = φnode(i, ibg.underlying_grid, ℓy)
+@inline φnode(j, ibg::IBG, ℓy) = φnode(j, ibg.underlying_grid, ℓy)
 
 @inline xnode(i, j, ibg::IBG, ℓx, ℓy) = xnode(i, j, ibg.underlying_grid, ℓx, ℓy)
 
