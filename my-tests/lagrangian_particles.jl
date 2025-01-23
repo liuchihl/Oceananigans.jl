@@ -54,7 +54,7 @@ model = NonhydrostaticModel(; grid, particles,
 bᵢ(x, y, z) = 1e-5 * z + 1e-9 * rand()
 set!(model, b=bᵢ)
 
-simulation = Simulation(model, Δt=10.0, stop_iteration=100)
+simulation = Simulation(model, Δt=10.0, stop_iteration=2000)
 wizard = TimeStepWizard(cfl=0.5, max_change=1.1, max_Δt=1minute)
 simulation.callbacks[:wizard] = Callback(wizard, IterationInterval(10))
 
@@ -69,87 +69,123 @@ simulation.output_writers[:buoyancy] =
 run!(simulation)
 
 
-
 using CairoMakie
 using NCDatasets
 using Printf
 
+# Load particle data
 fname = "my-tests/particles.nc"
 ds = Dataset(fname,"r")
 
 x = ds["x"][:,:]
 y = ds["y"][:,:]
 z = ds["z"][:,:]
+close(ds)
 
+# Load buoyancy data
 fname = "my-tests/b.nc"
 ds = Dataset(fname,"r")
 
 # grids
-zC = ds["zC"]; Nz=length(zC)
-zF = ds["zF"]; #Nz=length(zF)
-xC = ds["xC"]; Nx=length(xC)
-xF = ds["xF"];
+xC = ds["xC"]
+yC = ds["yC"]
+t = ds["time"]
 
-yC = ds["yC"]; Ny=length(yC)
-t = ds["time"];
+# Get buoyancy field
+b = ds["b"][:,:,:,:]
 
-u = ds["u"][:,:,:,:];
-# w = ds["w"][:,:,:,:];
-udiv = ds["udiv"][:,:,:,:];
-
-u_center = (u[:,:,:,:].+vcat(u[2:end,:,:,:], u[1:1,:,:,:]))./2
-# w_center = (w[:,:,1:end-1,:].+w[:,:,2:end,:])./2
-u_center[u_center.==0].=NaN
-# w_center[w_center.==0].=NaN
-# w[w.==0].=NaN
-u[u.==0].=NaN
-
-
-# plot
+# Create animation
 n = Observable(1)
-uₙ = @lift(u_center[:,1,:,$n])
-# wₙ = @lift(w_center[:,1,:,$n])
-udivₙ = @lift(udiv[:,1,:,$n])
+bₙ = @lift(b[:,:,end,$n]) # Take surface layer
+xₙ = @lift(x[:,$n])
+yₙ = @lift(y[:,$n])
 
-fig = Figure(resolution = (1000, 1000), figure_padding=(10, 40, 10, 10), size=(600,800),fontsize=20)
+fig = Figure(resolution = (800, 400), figure_padding=(10, 40, 10, 10), fontsize=20)
 axis_kwargs = (xlabel = "x (m)",
-                  ylabel = "z (m)",
-                  limits = ((0, ds["xF"][end]), (0, ds["zF"][end])),
-                  )
+              ylabel = "y (m)",
+              limits = ((minimum(xC), maximum(xC)), (minimum(yC), maximum(yC))),
+              aspect = 1)
+
 title = @lift @sprintf("t=%1.2f hrs", t[$n]/3600)
 fig[1, :] = Label(fig, title, fontsize=20, tellwidth=false)
-                  
-                  
-ax_u = Axis(fig[2, 1]; title = "u", axis_kwargs...)
-# ax_w = Axis(fig[3, 1]; title = "w", axis_kwargs...)
-ax_udiv = Axis(fig[3, 1]; title = L"∇⋅\vec{u}", axis_kwargs...)
 
+ax = Axis(fig[2, 1]; title = "Buoyancy and Particles", axis_kwargs...)
 
+# Plot buoyancy field
+hm = heatmap!(ax, xC[:], yC[:], bₙ,
+              colormap = :thermal,
+              nan_color = :gray)
+Colorbar(fig[2,2], hm; label = "b (m/s²)")
 
-using ColorSchemes
-U₀ = 0.01
-hm_u = heatmap!(ax_u, xC[:], zC[:], uₙ,
-    colorrange = (-3U₀, 3U₀), colormap = :diverging_bwr_20_95_c54_n256,
-    lowclip=cgrad(:diverging_bwr_20_95_c54_n256)[1], highclip=cgrad(:diverging_bwr_20_95_c54_n256)[end],
-    nan_color = :gray)
-# hm_w = heatmap!(ax_w, xC[:], zC[:], wₙ,
-#     colorrange = (-U₀, U₀), colormap = :diverging_bwr_20_95_c54_n256,
-#     lowclip=cgrad(:diverging_bwr_20_95_c54_n256)[1], highclip=cgrad(:diverging_bwr_20_95_c54_n256)[end],
-#     nan_color = :gray)
-# Colorbar(fig[3,2], hm_w; label = "m/s")
+# Plot particles
+particles = scatter!(ax, xₙ, yₙ, color=:white, markersize=10)
 
-hm_udiv = heatmap!(ax_udiv, xC[:], zC[:], udivₙ,
-    colorrange = (-1e-8,1e-8), colormap = :diverging_bwr_20_95_c54_n256,
-    lowclip=cgrad(:diverging_bwr_20_95_c54_n256)[1], highclip=cgrad(:diverging_bwr_20_95_c54_n256)[end],
-    nan_color = :gray)
-Colorbar(fig[3,2], hm_udiv; label = "1/s")
-
-
-frames =  (1:length(t))
-
-filename = join(split(fname, ".")[1:end-1], ".")
+frames = 1:length(t)
+filename = "my-tests/particles"
 
 record(fig, string(filename,".mp4"), frames, framerate=23) do i
     @info "Plotting frame $i of $(frames[end])..."
     n[] = i
 end
+
+close(ds)
+
+
+
+
+# Create 3D animation
+n = Observable(1)
+bₙ = @lift(b[:,:,:,$n])
+xₙ = @lift(x[:,$n])
+yₙ = @lift(y[:,$n])
+zₙ = @lift(z[:,$n])
+
+fig3D = Figure(resolution = (800, 600))
+ax3D = Axis3(fig3D[1,1]; 
+             xlabel = "x (m)",
+             ylabel = "y (m)", 
+             zlabel = "z (m)",
+             )
+
+title3D = @lift @sprintf("t=%1.2f hrs", t[$n]/3600)
+fig3D[1, :] = Label(fig3D, title3D, fontsize=20, tellwidth=false)
+
+# Create volume visualization
+zC = ds["zC"][:]  # Get z coordinates
+volumes = @lift begin
+    # Normalize buoyancy for better visualization
+    b_norm = ($bₙ .- minimum($bₙ)) ./ (maximum($bₙ) - minimum($bₙ))
+    volume = b_norm
+end
+
+# Plot volume rendering
+vol = volume!(ax3D, xC, yC, zC, volumes,
+              colormap = :thermal,
+              transparency = true,
+              alpha = 0.6)
+Colorbar(fig3D[1,2], vol, label="Normalized buoyancy")
+
+# Plot particles as spheres
+particles3D = scatter!(ax3D, xₙ, yₙ, zₙ, 
+                      color = :white,
+                      markersize = 15)
+
+# Adjust camera
+cam3D = cameracontrols(ax3D)
+cam3d!(ax3D, elevation=0.7, azimuth=0.3, roll=0.0)
+setperspective!(cam3D, 0.7)
+rotate_cam!(ax3D, 0.7, 0.3, 0.0)
+
+# Record animation
+filename3D = "my-tests/particles3D"
+record(fig3D, string(filename3D,".mp4"), frames, framerate=23) do i
+    @info "Plotting 3D frame $i of $(frames[end])..."
+    n[] = i
+    
+    # Slowly rotate camera during animation
+    # rotate_cam!(ax3D, 0.7, 0.3 + i*0.01, 0.0)
+    # cam3d!(ax3D, elevation=0.7, azimuth=0.3 + i*0.01, roll=0.0)
+
+end
+
+
