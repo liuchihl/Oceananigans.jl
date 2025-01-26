@@ -32,6 +32,9 @@ Nparticles = 10
 x₀ = Lx / 10 * (2rand(Nparticles) .- 1)
 y₀ = Ly / 10 * (2rand(Nparticles) .- 1)
 z₀ = - Lz / 10 * rand(Nparticles)
+# x₀ = zeros(Nparticles) .+ 1e-6*rand(Nparticles)
+# y₀ = zeros(Nparticles) .+ 1e-6*rand(Nparticles)
+# z₀ = zeros(Nparticles) .+ 1e-6*rand(Nparticles)
 particles = LagrangianParticles(x=x₀, y=y₀, z=z₀, restitution=0)
 
 @info "Initialized Lagrangian particles"
@@ -54,19 +57,27 @@ model = NonhydrostaticModel(; grid, particles,
 bᵢ(x, y, z) = 1e-5 * z + 1e-9 * rand()
 set!(model, b=bᵢ)
 
-simulation = Simulation(model, Δt=10.0, stop_iteration=2000)
+simulation = Simulation(model, Δt=10.0, stop_iteration=6000)
 wizard = TimeStepWizard(cfl=0.5, max_change=1.1, max_Δt=1minute)
 simulation.callbacks[:wizard] = Callback(wizard, IterationInterval(10))
 
 b = model.tracers.b
-particles = model.particles
-simulation.output_writers[:particles] = 
-                NetCDFOutputWriter(model, model.particles, filename="my-tests/particles.nc", schedule=IterationInterval(10))
+# particles = model.particles
+    simulation.output_writers[:particles] = 
+                    NetCDFOutputWriter(model, model.particles, filename="my-tests/lagrangian-particles/particles.nc", schedule=IterationInterval(10))
 simulation.output_writers[:buoyancy] = 
-                NetCDFOutputWriter(model, (b=b,), filename="my-tests/b.nc", schedule=IterationInterval(10))
+                NetCDFOutputWriter(model, (b=b,), filename="my-tests/lagrangian-particles/b.nc", schedule=IterationInterval(10))
+checkpointer = Checkpointer(model,
+                schedule = IterationInterval(6000),
+                dir="my-tests/lagrangian-particles/",
+                prefix = "lagrangian_particles",
+                cleanup = false)
 
+simulation.output_writers[:checkpointer] = checkpointer
+progress_message(sim) = @info string("Iter: ", iteration(sim), ", time: ", sim.model.clock.time)
+simulation.callbacks[:progress] = Callback(progress_message, IterationInterval(1))
 
-run!(simulation)
+run!(simulation,pickup=true)
 
 
 using CairoMakie
@@ -74,7 +85,7 @@ using NCDatasets
 using Printf
 
 # Load particle data
-fname = "my-tests/particles.nc"
+fname = "my-tests/lagrangian-particles/particles.nc"
 ds = Dataset(fname,"r")
 
 x = ds["x"][:,:]
@@ -83,7 +94,7 @@ z = ds["z"][:,:]
 close(ds)
 
 # Load buoyancy data
-fname = "my-tests/b.nc"
+fname = "my-tests/lagrangian-particles/b.nc"
 ds = Dataset(fname,"r")
 
 # grids
@@ -121,7 +132,7 @@ Colorbar(fig[2,2], hm; label = "b (m/s²)")
 particles = scatter!(ax, xₙ, yₙ, color=:white, markersize=10)
 
 frames = 1:length(t)
-filename = "my-tests/particles"
+filename = "my-tests/lagrangian-particles/particles_animation"
 
 record(fig, string(filename,".mp4"), frames, framerate=23) do i
     @info "Plotting frame $i of $(frames[end])..."
@@ -167,7 +178,7 @@ Colorbar(fig3D[1,2], vol, label="Normalized buoyancy")
 
 # Plot particles as spheres
 particles3D = scatter!(ax3D, xₙ, yₙ, zₙ, 
-                      color = :white,
+                      color = :black,
                       markersize = 15)
 
 # Adjust camera
@@ -177,7 +188,7 @@ setperspective!(cam3D, 0.7)
 rotate_cam!(ax3D, 0.7, 0.3, 0.0)
 
 # Record animation
-filename3D = "my-tests/particles3D"
+filename3D = "my-tests/lagrangian-particles/particles3D"
 record(fig3D, string(filename3D,".mp4"), frames, framerate=23) do i
     @info "Plotting 3D frame $i of $(frames[end])..."
     n[] = i
