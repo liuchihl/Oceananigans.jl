@@ -49,7 +49,7 @@ using Printf
     checkpointer = Checkpointer(model,
                                 schedule = TimeInterval(T1),
                                 dir="my-tests/checkpoint-for-different-model/",
-                                prefix = "checkpoint_test",
+                                prefix = "checkpoint_test1",
                                 cleanup = true)
 
     simulation.output_writers[:checkpointer] = checkpointer
@@ -107,7 +107,7 @@ simulation.output_writers[:particles] = NetCDFOutputWriter(model, model.particle
                              
 checkpointer = Checkpointer(model,
                             schedule = TimeInterval(T1),
-                            prefix = "checkpoint_test",
+                            prefix = "checkpoint_test1",
                             dir="my-tests/checkpoint-for-different-model/",
                             overwrite_existing = true)
 
@@ -123,41 +123,41 @@ run!(simulation,pickup=true)
 
 
 # Visualization
-using CairoMakie
-using NCDatasets
+# using CairoMakie
+# using NCDatasets
 
-# Load particle data
-ds = Dataset("my-tests/checkpoint-for-different-model/particles.nc", "r")
+# # Load particle data
+# ds = Dataset("my-tests/checkpoint-for-different-model/particles.nc", "r")
 
-# Get time steps and particle positions
-times = ds["time"][:]
-x = ds["x"][:,:]
-y = ds["y"][:,:]
-z = ds["z"][:,:]
+# # Get time steps and particle positions
+# times = ds["time"][:]
+# x = ds["x"][:,:]
+# y = ds["y"][:,:]
+# z = ds["z"][:,:]
 
-n_frames = length(times)
+# n_frames = length(times)
 
-# Create animation
-fig = Figure(resolution=(800, 600))
-ax = Axis(fig[1, 1],
-          xlabel = "Time (s)",
-          ylabel = "z",
-          title = "Particle Trajectories")
+# # Create animation
+# fig = Figure(resolution=(800, 600))
+# ax = Axis(fig[1, 1],
+#           xlabel = "Time (s)",
+#           ylabel = "z",
+#           title = "Particle Trajectories")
 
-limits!(ax, 0, T2, -1, 1)
+# limits!(ax, 0, T2, -1, 1)
 
-# Initialize scatter plot
-particles_plot = scatter!(ax, zeros(n_particles), zeros(n_particles),
-                         color = :blue, markersize = 10)
+# # Initialize scatter plot
+# particles_plot = scatter!(ax, zeros(n_particles), zeros(n_particles),
+#                          color = :blue, markersize = 10)
 
-# Create animation
-record(fig, "my-tests/checkpoint-for-different-model/particle_animation.mp4", 1:n_frames; framerate = 30) do i
-    # Extract z-coordinates for current time
-    z_positions = z[:, i]
-    # Update scatter plot
-    # particles_plot[1] = (fill(times[i], n_particles), z_positions)
-end
+# # Create animation
+# record(fig, "my-tests/checkpoint-for-different-model/particle_animation.mp4", 1:n_frames; framerate = 30) do i
+#     # Extract z-coordinates for current time
+#     z_positions = z[:, i]
+#     # Update scatter plot
+#     # particles_plot[1] = (fill(times[i], n_particles), z_positions)
+# end
 
-close(ds)
+# close(ds)
 
 # println("Animation saved as 'particle_animation.mp4'")
