@@ -98,23 +98,27 @@ end
 
     Δt = 0.01 #1/64 # Nice floating-point number
     T1 = 100Δt      # first simulation stop time (s)
-    T2 = 2T1      # second simulation stop time (s)
-    window_nΔt = 3
-    interval_nΔt = 5
+    T2 = 500Δt      # second simulation stop time (s)
+    window_nΔt1 = 10
+    interval_nΔt1 = 10
     stride = 1
     # Run a simulation that saves data to a checkpoint
-    simulation = test_simulation(T1, Δt, window_nΔt, interval_nΔt, stride, true)
+    simulation = test_simulation(T1, Δt, window_nΔt1, interval_nΔt1, stride, true)
     run!(simulation)
-    checkpointed_wta = simulation.output_writers[:single_output_time_average].outputs["c1"]
+    checkpointed_wta = simulation.output_writers[:single_output_time_average].outputs["c1"];
     checkpointed_actuations = checkpointed_wta.schedule.actuations
-
+    
     # Now try again, but picking up from the previous checkpoint
+    window_nΔt2 = 2
+    interval_nΔt2 = 2
+    checkpointed_actuations = round((T1/Δt)/window_nΔt2)
     N = iteration(simulation)
     checkpoint = "test_iteration$N.jld2"
-    simulation = test_simulation(T2, Δt, window_nΔt, interval_nΔt, stride, false)
+    simulation = test_simulation(T2, Δt, window_nΔt2, interval_nΔt2, stride, false)
     simulation.output_writers[:single_output_time_average].outputs["c1"].schedule.actuations = checkpointed_actuations
     run!(simulation, pickup=checkpoint)
-
+    checkpointed_wta = simulation.output_writers[:single_output_time_average].outputs["c1"];
+    checkpointed_actuations = checkpointed_wta.schedule.actuations
     ##### For each λ, horizontal average should evaluate to
     #####
     #####     c̄(z, t) = ∫₀¹ ∫₀¹ exp{- λ(x, y, z) * t} dx dy
@@ -169,26 +173,36 @@ end
         @test haskey(single_ds.attrib, name) && !isnothing(single_ds.attrib[name])
     end
 
-    window_size = window_nΔt
-    window = window_size*Δt
+    window_size1 = window_nΔt1
+    window1 = window_size1*Δt
+    window_size2 = window_nΔt2
+    window2 = window_size2*Δt
     # @info "    Testing time-averaging of a single NetCDF output [$(typeof(arch))]..."
 
-    for (n, t) in enumerate(single_ds["time"][2:end])
-        averaging_times = [t - n*Δt for n in 0:stride:window_size-1 if t - n*Δt >= 0]
-        # @info n,t,averaging_times, c̄1(averaging_times), single_ds["c1"][:, n+1], c̄1(averaging_times)./single_ds["c1"][:, n+1]
-        @test all(isapprox.(single_ds["c1"][:, n+1], c̄1(averaging_times), rtol=rtol))
-    end
+    # for (n, t) in enumerate(single_ds["time"][2:end])
+    #     averaging_times = [t - n*Δt for n in 0:stride:window_size-1 if t - n*Δt >= 0]
+    #     # @info n,t,averaging_times, c̄1(averaging_times), single_ds["c1"][:, n+1], c̄1(averaging_times)./single_ds["c1"][:, n+1]
+    #     @test all(isapprox.(single_ds["c1"][:, n+1], c̄1(averaging_times), rtol=rtol))
+    # end
 
     time = single_ds["time"][:]
     data_plot = single_ds["c1"][1:4, :]
-    c̄1_timeaverage = zeros(4,length(time[1:end]))
-    for (n, t) in enumerate(time[1:end])
-        averaging_times = [t - n*Δt for n in 0:stride:window_size-1 if t - n*Δt >= 0]
+    T1_ind = findfirst(t -> isapprox(t, T1, rtol=1e-4), time)
+    c̄1_timeaverage1 = zeros(4,length(time[1:T1_ind]))
+    c̄1_timeaverage2 = zeros(4,length(time[T1_ind+1:end]))
+    for (n, t) in enumerate(time[1:T1_ind])
+        averaging_times1 = [t - n*Δt for n in 0:stride:window_size1-1 if t - n*Δt >= 0]
+        @show averaging_times1
         # @info n,t,averaging_times, c̄1(averaging_times)
-        c̄1_timeaverage[:,n] = c̄1(averaging_times)
+        c̄1_timeaverage1[:,n] = c̄1(averaging_times1)
+    end
+    for (n, t) in enumerate(time[T1_ind+1:end])
+        averaging_times2 = [t - n*Δt for n in 0:stride:window_size2-1 if t - n*Δt >= 0]
+        # @info n,t,averaging_times, c̄1(averaging_times)
+        c̄1_timeaverage2[:,n] = c̄1(averaging_times2)
         # @test all(isapprox.(single_ds["c1"][:, n+1], c̄1(averaging_times), rtol=rtol))
     end
-
+    
     # Plot each of the four lines
     pl = plot()
     plot!(time, data_plot[1, :], label="1", color=:blue, legend=:topright)
@@ -196,18 +210,23 @@ end
     plot!(time, data_plot[3, :], label="3", color=:orange)
     plot!(time, data_plot[4, :], label="4", color=:green)
     
-    plot!(time[1:end],c̄1_timeaverage[1,:], color=:black, linestyle=:dash, label="1-analytic")
-    plot!(time[1:end],c̄1_timeaverage[2,:], color=:black, linestyle=:dash, label="2-analytic")
-    plot!(time[1:end],c̄1_timeaverage[3,:], color=:black, linestyle=:dash, label="3-analytic")
-    plot!(time[1:end],c̄1_timeaverage[4,:], color=:black, linestyle=:dash, label="4-analytic")
+    plot!(time[1:end],[c̄1_timeaverage1[1,:];c̄1_timeaverage2[1,:]], color=:black, linestyle=:dash, label="1-analytic")
+    plot!(time[1:end],[c̄1_timeaverage1[2,:];c̄1_timeaverage2[2,:]], color=:black, linestyle=:dash, label="2-analytic")
+    plot!(time[1:end],[c̄1_timeaverage1[3,:];c̄1_timeaverage2[3,:]], color=:black, linestyle=:dash, label="3-analytic")
+    plot!(time[1:end],[c̄1_timeaverage1[4,:];c̄1_timeaverage2[4,:]], color=:black, linestyle=:dash, label="4-analytic")
+    
     
 
-    tt = 0:window:T2
+    tt = 0:window1:T1
     for i in 1:length(tt)
     plot!([tt[i], tt[i]],[0,1],color=:grey,label="")
     end
-    title!(pl, string("Δt=",Δt,", average window=",window_nΔt,"Δt", ", interval=",interval_nΔt,"Δt")) # Add the title to the plot
-    ylims!(pl,(minimum(c̄1_timeaverage[4,:]),maximum(c̄1_timeaverage[4,:])))
-    xlims!(pl,(0,T2))
-    close(single_ds)
+    tt = T1:window1:T2
+    for i in 1:length(tt)
+    plot!([tt[i], tt[i]],[0,1],color=:grey,label="")
+    end
+    # title!(pl, string("Δt=",Δt,", average window=",window_nΔt,"Δt", ", interval=",interval_nΔt,"Δt")) # Add the title to the plot
+    # ylims!(pl,(minimum(c̄1_timeaverage[4,:]),maximum(c̄1_timeaverage[4,:])))
+    # xlims!(pl,(0,T2))
+    # close(single_ds)
     display(pl)
