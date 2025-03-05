@@ -17,24 +17,30 @@ Return a new particle position if the particle position `x`
 is outside the Bounded interval `(xᴸ, xᴿ)` by bouncing the particle off
 the interval edge with coefficient of restitution `Cʳ).
 """
-@inline enforce_boundary_conditions(::Bounded, x, xᴸ, xᴿ, Cʳ) = ifelse(x > xᴿ, bounce_left(x, xᴿ, Cʳ),
-                                                                ifelse(x < xᴸ, bounce_right(x, xᴸ, Cʳ), x))
-
+# @inline enforce_boundary_conditions(::Bounded, x, xᴸ, xᴿ, Cʳ) = ifelse(x > xᴿ, bounce_left(x, xᴿ, Cʳ),
+#                                                                 ifelse(x < xᴸ, bounce_right(x, xᴸ, Cʳ), x))
+@inline enforce_boundary_conditions(::Bounded, x, xᴸ, xᴿ, Cʳ, ε=1e-10) =
+                                                                ifelse(x > xᴿ, bounce_left(x, xᴿ, Cʳ) - ε,
+                                                                ifelse(x < xᴸ, bounce_right(x, xᴸ, Cʳ) + ε, x))
 """
     enforce_boundary_conditions(::Periodic, x, xᴸ, xᴿ, Cʳ)
 
 Return a new particle position if the particle position `x`
 is outside the Periodic interval `(xᴸ, xᴿ)`.
 """
-@inline enforce_boundary_conditions(::Periodic, x, xᴸ, xᴿ, Cʳ) = ifelse(x > xᴿ, xᴸ + (x - xᴿ),
-                                                                 ifelse(x < xᴸ, xᴿ - (xᴸ - x), x))
+# @inline enforce_boundary_conditions(::Periodic, x, xᴸ, xᴿ, Cʳ) = ifelse(x > xᴿ, xᴸ + (x - xᴿ),
+#                                                                  ifelse(x < xᴸ, xᴿ - (xᴸ - x), x))
+@inline enforce_boundary_conditions(::Periodic, x, xᴸ, xᴿ, Cʳ, ε=1e-10) =
+                                                                ifelse(x > xᴿ, xᴸ + (x - xᴿ) + ε,
+                                                                ifelse(x < xᴸ, xᴿ - (xᴸ - x) - ε, x))
 
 """
     enforce_boundary_conditions(::Flat, x, xᴸ, xᴿ, Cʳ)
 
 Do nothing on Flat dimensions.
 """
-@inline enforce_boundary_conditions(::Flat, x, xᴸ, xᴿ, Cʳ) = x
+# @inline enforce_boundary_conditions(::Flat, x, xᴸ, xᴿ, Cʳ) = x
+@inline enforce_boundary_conditions(::Flat, x, xᴸ, xᴿ, Cʳ, ε=1e-10) = x
 
 const f = Face()
 const c = Center()
@@ -78,10 +84,10 @@ bouncing the particle off the immersed boundary with a coefficient or `restituti
     zᴸ = rnode(i⁻, j⁻, k⁻, ibg, f, f, f)
 
     Cʳ = restitution
-    
-    xb⁺ = enforce_boundary_conditions(tx, x, xᴸ, xᴿ, Cʳ)
-    yb⁺ = enforce_boundary_conditions(ty, y, yᴸ, yᴿ, Cʳ)
-    zb⁺ = enforce_boundary_conditions(tz, z, zᴸ, zᴿ, Cʳ)
+    ε = 1e-6
+    xb⁺ = enforce_boundary_conditions(tx, x, xᴸ, xᴿ, Cʳ, ε)
+    yb⁺ = enforce_boundary_conditions(ty, y, yᴸ, yᴿ, Cʳ, ε)
+    zb⁺ = enforce_boundary_conditions(tz, z, zᴸ, zᴿ, Cʳ, ε)
 
     immersed = immersed_cell(i⁺, j⁺, k⁺, ibg)
     x⁺ = ifelse(immersed, xb⁺, x)
