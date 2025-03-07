@@ -244,7 +244,13 @@ function set!(model::AbstractModel, filepath::AbstractString)
         set_time_stepper!(model.timestepper, file, model_fields, addr)
 
         if !isnothing(model.particles)
+            # Check if particles key exists in the file and it's not nothing
+            if haskey(file, "$addr/particles") && !isnothing(file["$addr/particles"])
             copyto!(model.particles.properties, file["$addr/particles"])
+            else
+            # Particles don't exist in checkpoint but model.particles will be kept as is
+            @info "No particles found in checkpoint. Using model's existing particles."
+            end
         end
 
         checkpointed_clock = file["$addr/clock"]
