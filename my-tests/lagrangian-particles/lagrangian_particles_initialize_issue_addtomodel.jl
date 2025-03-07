@@ -101,54 +101,31 @@ function run_first_simulation()
     return iterations
 end
 
-    # Define custom particle structure
-    struct CustomParticle
-        x::Float64  # x-coordinate
-        y::Float64  # y-coordinate
-        z::Float64  # z-coordinate
-        b::Float64  # buoyancy
-    end
-# ------ Second simulation (with particles) ------
-function run_second_simulation(pickup_iteration)
-    @info "Running second simulation (with particles)"
-    
+# Define custom particle structure
+struct CustomParticle
+    x::Float64  # x-coordinate
+    y::Float64  # y-coordinate
+    z::Float64  # z-coordinate
+    b::Float64  # buoyancy
+end
 
-    
-    # Step 1: Load the pickup file using a temporary model without particles
-    @info "Creating temporary model to load pickup file"
-    
-    # Define tracers with buoyancy only (matching the first simulation)
+# ------ Second simulation (with particles) ------
     temp_tracers = (; b=CenterField(grid))
     
     # Convection boundary conditions
     b_bcs = FieldBoundaryConditions(top=FluxBoundaryCondition(1e-8))
     
-    # Create temporary model without particles (same as first simulation)
-    temp_model = NonhydrostaticModel(; grid,
-                advection = WENO(),
-                timestepper = :RungeKutta3,
-                tracers = :b,
-                buoyancy = BuoyancyTracer(),
-                closure = AnisotropicMinimumDissipation(),
-                boundary_conditions = (; b=b_bcs))
-    
     # Load the pickup file into temporary model
-    pickup_file = "my-tests/lagrangian-particles/first_sim_iteration$(pickup_iteration).jld2"
-    @info "Loading pickup file into temporary model: $pickup_file"
-    set!(temp_model, pickup_file)
-    
-    # Step 2: Now create the actual model with particles
-    @info "Creating actual model with particles"
-    
+    pickup_file = "my-tests/lagrangian-particles/first_sim_iteration2500.jld2"
+
     # Initialize particles
-    restitution = 1  # Restitution coefficient for particle collisions
-    
+    restitution = 1  # Restitution coefficient for particle collisions    
     Random.seed!(123)  # Set a fixed seed for reproducibility
     Nparticles = 30
     x₀ = Lx / 10 * (2rand(Nparticles) .- 1)
     y₀ = Ly / 10 * (2rand(Nparticles) .- 1)
     z₀ = - Lz / 10 * rand(Nparticles)
-    b = 1e-5*ones(Nparticles)
+    b = 1e-5 * ones(Nparticles)
     u = zeros(Nparticles)
     w = zeros(Nparticles)
     
@@ -162,31 +139,20 @@ function run_second_simulation(pickup_iteration)
     particles = LagrangianParticles(lagrangian_particles; tracked_fields=tracked_fields, restitution=restitution)
     
     # Create model with particles
-    model = NonhydrostaticModel(; grid, particles,
-                advection = WENO(),
-                timestepper = :RungeKutta3,
-                tracers = tracers,
-                buoyancy = BuoyancyTracer(),
-                closure = AnisotropicMinimumDissipation(),
-                boundary_conditions = (; b=b_bcs))
-    
-    @info "Constructed model for second simulation"
-    
-    # Step 3: Copy the fields and velocities from temp_model to model
-    # @info "Copying fields from temporary model to particle model"
-    # copyto!(model.velocities.u, temp_model.velocities.u)
-    # copyto!(model.velocities.v, temp_model.velocities.v)
-    # copyto!(model.velocities.w, temp_model.velocities.w)
-    # copyto!(model.tracers.b, temp_model.tracers.b)
-    
-    # # Set the clock to match
-    # model.clock.time = temp_model.clock.time
-    # model.clock.iteration = temp_model.clock.iteration
-    
+    model = NonhydrostaticModel(; grid,
+            advection = WENO(),
+            timestepper = :RungeKutta3,
+            tracers = tracers,
+            buoyancy = BuoyancyTracer(),
+            closure = AnisotropicMinimumDissipation(),
+            boundary_conditions = (; b=b_bcs),
+            particles)
+
+    # Create the complete model with particles
     # Set concentration field (not in pickup)
     cᵢ(x, z) = 1 * z + 1e-9 * rand()
+    set!(model, pickup_file)
     set!(model, c=cᵢ)
-    
     # Set up simulation
     tf = 5000
     simulation = Simulation(model, Δt=10, stop_iteration=tf)
@@ -207,7 +173,7 @@ function run_second_simulation(pickup_iteration)
                                       overwrite_existing=true)
     
     simulation.output_writers[:buoyancy] = 
-                    NetCDFOutputWriter(model, (b=b,c=c), 
+                    NetCDFOutputWriter(model, (b=b, c=c), 
                                       filename=string("my-tests/lagrangian-particles/b_immerse_",tf,"_restitution=",restitution,".nc"), 
                                       schedule=IterationInterval(10),
                                       overwrite_existing=true)
@@ -225,9 +191,6 @@ function run_second_simulation(pickup_iteration)
     # Run simulation
     run!(simulation)
     
-    @info "Second simulation completed"
-end
-
 # ------ Main execution ------
 # Run first simulation and get the iteration number of the pickup file
 pickup_iteration = run_first_simulation()
@@ -276,7 +239,7 @@ cxz2ₙ = @lift(c2[:,Ny,:,$n]) # Take center slice
 xₙ = @lift(p_x[:,$n])
 zₙ = @lift(p_z[:, $n])
 
-tf=2500
+tf=5000
 restitution=1
 if tf!==5000
     fig = Figure(resolution = (900, 500), figure_padding=(10, 40, 10, 10), fontsize=20);

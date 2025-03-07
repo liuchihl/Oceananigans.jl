@@ -22,7 +22,7 @@ h(k) = (k - 1) / Nz
 z_stretched(k) = Lz * (ζ₀(k) * Σ(k) - 1)
 z_uniform = (-Lz, 0)
 
-grid = RectilinearGrid(; size = (Nx, Nz), halo=(3, 3),
+grid = RectilinearGrid(; size = (Nx, Nz), halo=(4, 4),
                        x = (-Lx/2, Lx/2),
                     #    y = (-Ly/2, Lx/2),
                        z = z_stretched,topology = (Bounded, Flat, Bounded))
@@ -43,6 +43,7 @@ grid= ImmersedBoundaryGrid(grid, GridFittedBottom(topo))
 
 restitution = 1  # Restitution coefficient for particle collisions
 
+part=true
 # 10 Lagrangian particles
 Random.seed!(123)  # Set a fixed seed for reproducibility
 Nparticles = 30
@@ -65,11 +66,12 @@ end
 lagrangian_particles = StructArray{CustomParticle}((x₀, y₀, z₀, b, u, w));
 
 # Define tracked fields as a NamedTuple
-tracers = (; b=CenterField(grid))
-velocities = (; u=CenterField(grid), w=CenterField(grid))
-tracked_fields = (; b=tracers.b, u=velocities.u, w=velocities.w)
+tracers = (; b=CenterField(grid), c=CenterField(grid))
+# tracers = (; b=CenterField(grid))
+tracked_fields = (; b=tracers.b)
 
 particles = LagrangianParticles(lagrangian_particles; tracked_fields=tracked_fields, restitution=restitution)
+cᵢ(x, z) = 1 * z + 1e-9 * rand()
 
 # Convection
 b_bcs = FieldBoundaryConditions(top=FluxBoundaryCondition(1e-8))
@@ -79,7 +81,7 @@ model = NonhydrostaticModel(; grid, particles,
             # reltol=tol),
             advection = WENO(),
             timestepper = :RungeKutta3,
-            tracers = :b,
+            tracers = part==true ? tracers : :b,
             buoyancy = BuoyancyTracer(),
             closure = AnisotropicMinimumDissipation(),
             boundary_conditions = (; b=b_bcs))
@@ -88,25 +90,29 @@ model = NonhydrostaticModel(; grid, particles,
 @show model
 
 bᵢ(x, z) = 1e-5 * z + 1e-9 * rand()
-set!(model, b=bᵢ)
+tf = 5000
+# set!(model, b=bᵢ)
+set!(model, "my-tests/lagrangian-particles/lagrangian_particles_iteration2500.jld2",
+)
+set!(model, c=cᵢ)
 
-simulation = Simulation(model, Δt=10.0, stop_iteration=2500)
+simulation = Simulation(model, Δt=10, stop_iteration=tf)
 wizard = TimeStepWizard(cfl=0.5, max_change=1.1, max_Δt=1minute)
 simulation.callbacks[:wizard] = Callback(wizard, IterationInterval(10))
 
 b = model.tracers.b
-# particles = model.particles
+c = model.tracers.c
 simulation.output_writers[:particles] = 
-                    NetCDFOutputWriter(model, model.particles, filename=string("my-tests/lagrangian-particles/particles_immerse_restitution=",restitution,".nc"), schedule=IterationInterval(10),
+                    NetCDFOutputWriter(model, model.particles, filename=string("my-tests/lagrangian-particles/particles_immerse_",tf,"_restitution=",restitution,".nc"), schedule=IterationInterval(10),
                     overwrite_existing=true)
 simulation.output_writers[:buoyancy] = 
-                NetCDFOutputWriter(model, (b=b,), filename=string("my-tests/lagrangian-particles/b_immerse_restitution=",restitution,".nc"), schedule=IterationInterval(10),
+                NetCDFOutputWriter(model, (b=b,c=c), filename=string("my-tests/lagrangian-particles/b_immerse_",tf,"_restitution=",restitution,".nc"), schedule=IterationInterval(10),
                 overwrite_existing=true)
-# checkpointer = Checkpointer(model,
-#                 schedule = IterationInterval(6000),
-#                 dir="my-tests/lagrangian-particles/",
-#                 prefix = "lagrangian_particles",
-#                 cleanup = false)
+simulation.output_writers[:checkpointer] = Checkpointer(model,
+                schedule = IterationInterval(tf),
+                dir="my-tests/lagrangian-particles/",
+                prefix = "lagrangian_particles",
+                cleanup = false)
 
 # simulation.output_writers[:checkpointer] = checkpointer
 progress_message(sim) = @info string("Iter: ", iteration(sim), ", time: ", sim.model.clock.time)
@@ -118,9 +124,8 @@ run!(simulation,pickup=false)
 using CairoMakie
 using NCDatasets
 using Printf
-
-# Load particle data
-fname = "my-tests/lagrangian-particles/particles_immerse_restitution=$restitution.nc"
+tf=5000
+fname = string("my-tests/lagrangian-particles/particles_immerse_",tf,"_restitution=",restitution,".nc")
 ds_par = Dataset(fname,"r")
 
 x = ds_par["x"][:,:]
@@ -132,7 +137,8 @@ w_par = ds_par["w"][:,:]
 close(ds_par)
 
 # Load buoyancy data
-fname = "my-tests/lagrangian-particles/b_immerse_restitution=$restitution.nc"
+fname = string("my-tests/lagrangian-particles/b_immerse_",tf,"_restitution=",restitution,".nc")
+# fname = string("my-tests/lagrangian-particles/b_immerse_restitution=",restitution,".nc")
 ds = Dataset(fname,"r")
 
 # grids
@@ -143,51 +149,98 @@ t = ds["time"]
 # Get buoyancy field
 b = ds["b"][:,:,:,:]
 b[b.==0] .= NaN
-# Create animation
 n = Observable(1)
 bxzₙ = @lift(b[:,Ny,:,$n]) # Take center slice
 xₙ = @lift(x[:,$n])
 yₙ = @lift(y[:,$n])
 zₙ = @lift(z[:, $n])
 
-fig = Figure(resolution = (1200, 500), figure_padding=(10, 40, 10, 10), fontsize=20)
-axis_kwargs = (xlabel = "x (m)",
-              aspect = 1)
+if tf!==5000
+    fig = Figure(resolution = (900, 500), figure_padding=(10, 40, 10, 10), fontsize=20)
+    axis_kwargs = (xlabel = "x (m)",
+                aspect = 1)
 
-title = @lift @sprintf("t=%1.2f hrs", t[$n]/3600)
-fig[1, :] = Label(fig, title, fontsize=20, tellwidth=false)
+    title = @lift @sprintf("t=%1.2f hrs", t[$n]/3600)
+    fig[1, :] = Label(fig, title, fontsize=20, tellwidth=false)
 
-# Second column: x-z view
-ax1 = Axis(fig[2, 1]; title = "x-z plane (side view)",
-           ylabel = "z (m)",
-           limits = ((minimum(xC), maximum(xC)), (minimum(ds["zC"][:]), 0)),
-           axis_kwargs...)
+    # First column: x-z view of buoyancy
+    ax1 = Axis(fig[2, 1]; title = "Buoyancy (x-z plane)",
+            ylabel = "z (m)",
+            limits = ((minimum(xC), maximum(xC)), (minimum(ds["zC"][:]), 0)),
+            axis_kwargs...)
+    # Calculate global min/max for buoyancy and concentration
+    b_global_min = minimum(filter(!isnan, b))
+    b_global_max = maximum(filter(!isnan, b))
+    # Plot buoyancy field in x-z plane
+    hm1 = heatmap!(ax1, xC[:], ds["zC"][:], bxzₙ,
+                colormap = :thermal,
+                colorrange = (b_global_min, b_global_max),
+                nan_color = :gray)
+    # Add colorbars
+    Colorbar(fig[2, 3], hm1, label = "b (m/s²)")
 
-# Plot buoyancy field in x-y plane
-# Calculate global min/max for consistent colormap across frames
-global_min = minimum(filter(!isnan, b))
-global_max = maximum(filter(!isnan, b))
+    # Plot particles in both views
+    particles_xz1 = scatter!(ax1, xₙ, zₙ, color=:black, markersize=10)
 
-# Plot buoyancy field in x-z plane
-hm1 = heatmap!(ax1, xC[:], ds["zC"][:], bxzₙ,
-               colormap = :thermal,
-               colorrange = (global_min, global_max),
-               nan_color = :gray)
+else
+    c = ds["c"][:,:,:,:]
+    c[c.==0] .= NaN
+    # Create animation
+   
+    cxzₙ = @lift(c[:,Ny,:,$n]) # Take center slice
+    fig = Figure(resolution = (900, 500), figure_padding=(10, 40, 10, 10), fontsize=20)
+    axis_kwargs = (xlabel = "x (m)",
+                aspect = 1)
 
-# Add colorbar
-Colorbar(fig[2, 2], hm1, label = "b (m/s²)")
+    title = @lift @sprintf("t=%1.2f hrs", t[$n]/3600)
+    fig[1, :] = Label(fig, title, fontsize=20, tellwidth=false)
 
-# Plot particles in x-z plane
-particles_xz = scatter!(ax1, xₙ, zₙ, color=:black, markersize=10)
+    # First column: x-z view of buoyancy
+    ax1 = Axis(fig[2, 1]; title = "Buoyancy (x-z plane)",
+            ylabel = "z (m)",
+            limits = ((minimum(xC), maximum(xC)), (minimum(ds["zC"][:]), 0)),
+            axis_kwargs...)
 
+    # Second column: x-z view of concentration
+    ax2 = Axis(fig[2, 2]; title = "Concentration (x-z plane)",
+            ylabel = "z (m)",
+            limits = ((minimum(xC), maximum(xC)), (minimum(ds["zC"][:]), 0)),
+            axis_kwargs...)
+
+    # Calculate global min/max for buoyancy and concentration
+    b_global_min = minimum(filter(!isnan, b))
+    b_global_max = maximum(filter(!isnan, b))
+    c_global_min = minimum(filter(!isnan, c))
+    c_global_max = maximum(filter(!isnan, c))
+
+    # Plot buoyancy field in x-z plane
+    hm1 = heatmap!(ax1, xC[:], ds["zC"][:], bxzₙ,
+                colormap = :thermal,
+                colorrange = (b_global_min, b_global_max),
+                nan_color = :gray)
+
+    # Plot concentration field in x-z plane
+    hm2 = heatmap!(ax2, xC[:], ds["zC"][:], cxzₙ,
+                colormap = :viridis,
+                colorrange = (c_global_min, c_global_max),
+                nan_color = :gray)
+
+    # Add colorbars
+    Colorbar(fig[2, 3], hm1, label = "b (m/s²)")
+    Colorbar(fig[2, 4], hm2, label = "c (concentration)")
+
+    # Plot particles in both views
+    particles_xz1 = scatter!(ax1, xₙ, zₙ, color=:black, markersize=10)
+    particles_xz2 = scatter!(ax2, xₙ, zₙ, color=:black, markersize=10)
+
+end
 frames = 1:length(t)
-filename = "my-tests/lagrangian-particles/particles_animation_immerse_restitution=$restitution"
+filename = string("my-tests/lagrangian-particles/particles_animation_immerse_tf=",tf,"_restitution=",restitution)
 
 record(fig, string(filename,".mp4"), frames, framerate=23) do i
     @info "Plotting frame $i of $(frames[end])..."
     n[] = i
 end
-
 close(ds)
 
 
