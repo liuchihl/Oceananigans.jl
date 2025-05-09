@@ -745,6 +745,7 @@ Statistics.mean!(r::ReducedAbstractField, a::AbstractArray; kwargs...) = Statist
 function Statistics.norm(a::AbstractField; condition = nothing)
     r = zeros(a.grid, 1)
     Base.mapreducedim!(x -> x * x, +, r, condition_operand(a, condition, 0))
+    CUDA.synchronize()  # This is critical
     return CUDA.@allowscalar sqrt(r[1])
 end
 
