@@ -124,7 +124,7 @@ function solve!(ϕ, solver::FFTBasedPoissonSolver, b=solver.storage, m=0, μ=0)
     end
 
     launch!(arch, solver.grid, :xyz, copy_real_component!, ϕ, ϕc, indices(ϕ))
-    
+
     return ϕ
 end
 
@@ -139,4 +139,3 @@ end
 
     @inbounds ϕ[i′, j′, k′] = real(ϕc[i, j, k])
 end
-
