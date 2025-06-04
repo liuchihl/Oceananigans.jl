@@ -11,7 +11,7 @@ import Oceananigans.BoundaryConditions: FieldBoundaryConditions, regularize_fiel
 import Oceananigans.Grids: xnodes, ynodes
 import Oceananigans.Fields: set!, compute!, compute_at!, validate_field_data, validate_boundary_conditions
 import Oceananigans.Fields: validate_indices, communication_buffers
-import Oceananigans.Models: hasnan
+import Oceananigans.Diagnostics: hasnan
 
 import Base: fill!, axes
 
@@ -119,6 +119,9 @@ end
 ## Functions applied regionally
 set!(mrf::MultiRegionField, v)  = apply_regionally!(set!,  mrf, v)
 fill!(mrf::MultiRegionField, v) = apply_regionally!(fill!, mrf, v)
+
+set!(mrf::MultiRegionField, a::Number)  = apply_regionally!(set!,  mrf, a)
+fill!(mrf::MultiRegionField, a::Number) = apply_regionally!(fill!, mrf, a)
 
 set!(mrf::MultiRegionField, f::Function) = apply_regionally!(set!, mrf, f)
 set!(u::MultiRegionField, v::MultiRegionField) = apply_regionally!(set!, u, v)

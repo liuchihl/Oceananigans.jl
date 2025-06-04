@@ -84,8 +84,6 @@ pressure anomaly.
                                      clock,
                                      forcing)
 
-    model_fields = merge(velocities, tracers, auxiliary_fields)
-
     total_velocities = sum_of_velocities(velocities, background_fields.velocities)
     total_velocities = with_advective_forcing(forcing, total_velocities)
 
@@ -147,8 +145,6 @@ pressure anomaly.
                                      hydrostatic_pressure,
                                      clock,
                                      forcing)
-
-    model_fields = merge(velocities, tracers, auxiliary_fields)
 
     total_velocities = sum_of_velocities(velocities, background_fields.velocities)
     total_velocities = with_advective_forcing(forcing, total_velocities)
@@ -214,7 +210,6 @@ velocity components, tracer fields, and precalculated diffusivities where applic
                                      hydrostatic_pressure,
                                      clock,
                                      forcing)
-
 
     total_velocities = sum_of_velocities(velocities, background_fields.velocities)
     total_velocities = with_advective_forcing(forcing, total_velocities)
