@@ -2,6 +2,7 @@ module BuoyancyFormulations
 
 export
     BuoyancyForce, BuoyancyTracer, SeawaterBuoyancy, LinearEquationOfState,
+    GeneralizedLinearEquationOfState,
     ∂x_b, ∂y_b, ∂z_b, buoyancy_perturbationᶜᶜᶜ, x_dot_g_bᶠᶜᶜ, y_dot_g_bᶜᶠᶜ, z_dot_g_bᶜᶜᶠ,
     top_buoyancy_flux
 
@@ -40,6 +41,7 @@ include("no_buoyancy.jl")
 include("buoyancy_tracer.jl")
 include("seawater_buoyancy.jl")
 include("linear_equation_of_state.jl")
+include("generalized_linear_equation_of_state.jl") 
 include("nonlinear_equation_of_state.jl")
 include("g_dot_b.jl")
 
