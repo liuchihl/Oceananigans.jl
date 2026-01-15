@@ -12,7 +12,7 @@ using SeawaterPolynomials: BoussinesqEquationOfState
 using Oceananigans: initialize!, prettytime, pretty_filesize, AbstractModel
 using Oceananigans.Architectures: CPU, GPU, on_architecture
 using Oceananigans.AbstractOperations: KernelFunctionOperation, AbstractOperation
-using Oceananigans.BuoyancyFormulations: BuoyancyForce, BuoyancyTracer, SeawaterBuoyancy, LinearEquationOfState
+using Oceananigans.BuoyancyFormulations: BuoyancyForce, BuoyancyTracer, SeawaterBuoyancy, LinearEquationOfState, GeneralizedLinearEquationOfState
 using Oceananigans.Fields: Reduction, reduced_dimensions, reduced_location, location, indices
 using Oceananigans.Models: ShallowWaterModel, LagrangianParticles
 
@@ -734,6 +734,11 @@ default_tracer_attributes(::BuoyancyForce{<:BuoyancyTracer}) = Dict("b" => Dict(
 default_tracer_attributes(::BuoyancyForce{<:SeawaterBuoyancy{FT, <:LinearEquationOfState}}) where FT = Dict(
     "T" => Dict("long_name" => "Temperature", "units" => "°C"),
     "S" => Dict("long_name" => "Salinity",    "units" => "practical salinity unit (psu)"))
+
+default_tracer_attributes(::BuoyancyForce{<:SeawaterBuoyancy{FT, <:GeneralizedLinearEquationOfState}}) where FT = Dict(
+    "T"  => Dict("long_name" => "Temperature",        "units" => "°C"),
+    "S"  => Dict("long_name" => "Salinity",           "units" => "practical salinity unit (psu)"),
+    "C1" => Dict("long_name" => "Buoyancy tracer C1", "units" => "1"))
 
 default_tracer_attributes(::BuoyancyBoussinesqEOSModel) = Dict("T" => Dict("long_name" => "Conservative temperature", "units" => "°C"),
                                                                "S" => Dict("long_name" => "Absolute salinity",        "units" => "g/kg"))
