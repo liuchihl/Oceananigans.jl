@@ -3,7 +3,14 @@ using Oceananigans.TimeSteppers: update_state!
 using Oceananigans.DistributedComputations: cpu_architecture, partition
 
 function run_ocean_large_eddy_simulation_regression_test(arch, grid_type, closure)
-    name = "ocean_large_eddy_simulation_" * string(typeof(first(closure)).name.wrapper)
+    if first(closure) isa SmagorinskyLilly
+        name = "ocean_large_eddy_simulation_SmagorinskyLilly"
+    else
+        firstclosure = first(closure)
+        closurename = typeof(firstclosure).name.wrapper
+        closurestr = string(closurename)
+        name = "ocean_large_eddy_simulation_$closurestr"
+    end
 
     spinup_steps = 10000
       test_steps = 10
@@ -40,7 +47,7 @@ function run_ocean_large_eddy_simulation_regression_test(arch, grid_type, closur
                                 boundary_conditions = (u=u_bcs, T=T_bcs, S=S_bcs))
 
     # The type of the underlying data, not the offset array.
-    ArrayType = typeof(model.velocities.u.data.parent)
+    ArrayType = typeof(parent(model.velocities.u))
     nx, ny, nz = size(model.tracers.T)
 
     u, v, w = model.velocities
@@ -76,7 +83,7 @@ function run_ocean_large_eddy_simulation_regression_test(arch, grid_type, closur
     #### Regression test
     ####
 
-    datadep_path = "regression_test_data/" * name * "_iteration$spinup_steps.jld2"
+    datadep_path = "regression_truth_data/" * name * "_iteration$spinup_steps.jld2"
     initial_filename = @datadep_str datadep_path
 
     solution₀, Gⁿ₀, G⁻₀ = get_fields_from_checkpoint(initial_filename)
@@ -131,16 +138,16 @@ function run_ocean_large_eddy_simulation_regression_test(arch, grid_type, closur
         time_step!(model, Δt, euler=false)
     end
 
-    datadep_path = "regression_test_data/" * name * "_iteration$(spinup_steps+test_steps).jld2"
+    datadep_path = "regression_truth_data/" * name * "_iteration$(spinup_steps+test_steps).jld2"
     final_filename = @datadep_str datadep_path
 
     solution₁, Gⁿ₁, G⁻₁ = get_fields_from_checkpoint(final_filename)
 
-    test_fields = CUDA.@allowscalar (u = Array(interior(model.velocities.u)),
-                                     v = Array(interior(model.velocities.v)),
-                                     w = Array(interior(model.velocities.w)[:, :, 1:nz]),
-                                     T = Array(interior(model.tracers.T)),
-                                     S = Array(interior(model.tracers.S)))
+    test_fields = @allowscalar (u = Array(interior(model.velocities.u)),
+                                v = Array(interior(model.velocities.v)),
+                                w = Array(interior(model.velocities.w)[:, :, 1:nz]),
+                                T = Array(interior(model.tracers.T)),
+                                S = Array(interior(model.tracers.S)))
 
     u₁ = partition(Array(solution₁.u)[2:end-1, 2:end-1, 2:end-1], cpu_arch, size(u))
     v₁ = partition(Array(solution₁.v)[2:end-1, 2:end-1, 2:end-1], cpu_arch, size(v))

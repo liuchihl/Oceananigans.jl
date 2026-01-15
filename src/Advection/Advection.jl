@@ -1,25 +1,13 @@
 module Advection
 
-export 
+export
     div_𝐯u, div_𝐯v, div_𝐯w, div_Uc,
 
-    momentum_flux_uu,
-    momentum_flux_uv,
-    momentum_flux_uw,
-    momentum_flux_vu,
-    momentum_flux_vv,
-    momentum_flux_vw,
-    momentum_flux_wu,
-    momentum_flux_wv,
-    momentum_flux_ww,
     advective_tracer_flux_x,
     advective_tracer_flux_y,
     advective_tracer_flux_z,
 
-    AdvectionScheme,
-    Centered, CenteredSecondOrder, CenteredFourthOrder,
-    UpwindBiased, UpwindBiasedFirstOrder, UpwindBiasedThirdOrder, UpwindBiasedFifthOrder,
-    WENO, WENOThirdOrder, WENOFifthOrder,
+    Centered, UpwindBiased, WENO,
     VectorInvariant, WENOVectorInvariant,
     FluxFormAdvection,
     EnergyConserving,
@@ -28,16 +16,21 @@ export
 using DocStringExtensions
 
 using Base: @propagate_inbounds
-using Adapt 
+using Adapt
 using OffsetArrays
+using MuladdMacro: @muladd
 
+using Oceananigans
 using Oceananigans.Grids
-using Oceananigans.Grids: with_halo, coordinates
-using Oceananigans.Architectures: architecture, CPU
-
 using Oceananigans.Operators
 
-import Base: show, summary
+using Oceananigans: fully_supported_float_types
+using Oceananigans.Architectures: architecture, CPU
+using Oceananigans.Grids: with_halo
+using Oceananigans.Operators: flux_div_xyᶜᶜᶜ, ∂t_σ
+using Oceananigans.Grids: XFlatGrid, YFlatGrid, ZFlatGrid
+
+import Base: summary, Callable
 import Oceananigans.Grids: required_halo_size_x, required_halo_size_y, required_halo_size_z
 import Oceananigans.Architectures: on_architecture
 
@@ -61,6 +54,8 @@ const advection_buffers = [1, 2, 3, 4, 5, 6]
 @inline required_halo_size_y(::AbstractAdvectionScheme{B}) where B = B
 @inline required_halo_size_z(::AbstractAdvectionScheme{B}) where B = B
 
+struct DecreasingOrderAdvectionScheme end
+
 include("centered_advective_fluxes.jl")
 include("upwind_biased_advective_fluxes.jl")
 
@@ -77,12 +72,12 @@ include("vector_invariant_self_upwinding.jl")
 include("vector_invariant_cross_upwinding.jl")
 include("flux_form_advection.jl")
 
-include("flat_advective_fluxes.jl")
 include("topologically_conditional_interpolation.jl")
+include("flat_advective_fluxes.jl")
 include("immersed_advective_fluxes.jl")
 include("momentum_advection_operators.jl")
 include("tracer_advection_operators.jl")
-include("positivity_preserving_tracer_advection_operators.jl")
+include("bounds_preserving_tracer_advection_operators.jl")
 include("cell_advection_timescale.jl")
 include("adapt_advection_order.jl")
 

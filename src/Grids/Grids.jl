@@ -1,39 +1,38 @@
 module Grids
 
 export Center, Face
-export AbstractTopology, Periodic, Bounded, Flat, FullyConnected, LeftConnected, RightConnected, topology
-
+export AbstractTopology, topology
+export Periodic, Bounded, Flat, FullyConnected, LeftConnected, RightConnected
 export AbstractGrid, AbstractUnderlyingGrid, halo_size, total_size
 export RectilinearGrid
 export AbstractCurvilinearGrid, AbstractHorizontallyCurvilinearGrid
 export XFlatGrid, YFlatGrid, ZFlatGrid
 export XRegularRG, YRegularRG, ZRegularRG, XYRegularRG, XYZRegularRG
 export LatitudeLongitudeGrid, XRegularLLG, YRegularLLG, ZRegularLLG
-export OrthogonalSphericalShellGrid, ConformalCubedSphereGrid, ZRegOrthogonalSphericalShellGrid
-export conformal_cubed_sphere_panel
+export OrthogonalSphericalShellGrid, ZRegOrthogonalSphericalShellGrid
+export MutableVerticalDiscretization
+export ExponentialDiscretization, ReferenceToStretchedDiscretization, PowerLawStretching, LinearStretching
 export node, nodes
 export ξnode, ηnode, rnode
 export xnode, ynode, znode, λnode, φnode
-export xnodes, ynodes, znodes, λnodes, φnodes
-export spacings
-export xspacings, yspacings, zspacings, xspacing, yspacing, zspacing
+export xnodes, ynodes, znodes, λnodes, φnodes, rnodes
+export xspacings, yspacings, zspacings, λspacings, φspacings, rspacings
 export minimum_xspacing, minimum_yspacing, minimum_zspacing
+export static_column_depthᶜᶜᵃ, static_column_depthᶠᶜᵃ, static_column_depthᶜᶠᵃ, static_column_depthᶠᶠᵃ
+export column_depthᶜᶜᵃ, column_depthᶠᶜᵃ, column_depthᶜᶠᵃ, column_depthᶠᶠᵃ
 export offset_data, new_data
 export on_architecture
 
-using CUDA
-using CUDA: has_cuda
 using Adapt
+using GPUArraysCore
 using OffsetArrays
+using Printf
 
 using Oceananigans
 using Oceananigans.Architectures
 
-import Base: size, length, eltype, show, -
+import Base: size, length, eltype, -
 import Oceananigans.Architectures: architecture, on_architecture
-
-# Physical constants for constructors.
-const R_Earth = 6371.0e3    # [m] Mean radius of the Earth https://en.wikipedia.org/wiki/Earth
 
 #####
 ##### Abstract types
@@ -115,8 +114,13 @@ struct ZDirection <: AbstractDirection end
 
 struct NegativeZDirection <: AbstractDirection end
 
+const F = Face
+const C = Center
+
 include("abstract_grid.jl")
+include("vertical_discretization.jl")
 include("grid_utils.jl")
+include("coordinate_utils.jl")
 include("nodes_and_spacings.jl")
 include("zeros_and_ones.jl")
 include("new_data.jl")
@@ -127,5 +131,6 @@ include("grid_generation.jl")
 include("rectilinear_grid.jl")
 include("orthogonal_spherical_shell_grid.jl")
 include("latitude_longitude_grid.jl")
+include("coordinate_transformations.jl")
 
 end # module
